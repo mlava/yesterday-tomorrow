@@ -155,7 +155,12 @@ export default {
                         block: { string: "", uid: newBlockUid }
                     });
             }
-            let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+
+            if (window.roamAlphaAPI.graph.type === "offline") {
+                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
+            } else {
+                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+            }
             window.open(roamuri, "_self");
         }
     },
