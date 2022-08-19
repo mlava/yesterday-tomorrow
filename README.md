@@ -7,3 +7,7 @@ The extension will create the required DNP page if there isn't already one assig
 You can choose to display Yesterday and Tomorrow as dates, using international or US styling if you prefer.
 
 ![image](https://user-images.githubusercontent.com/6857790/184466694-e023a40b-d186-4597-aea4-01170c024880.png)
+
+The buttons will automatically shrink to show only the icons with the text on smaller screen sizes.
+
+![image](https://user-images.githubusercontent.com/6857790/185626285-a79a3229-4d04-43fb-be83-0ef36d3ec52d.png)
