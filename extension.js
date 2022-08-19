@@ -32,6 +32,7 @@ export default {
         
         var currentDate;
         var dbname = window.location.href.split('/')[5];
+        var roamuri;
 
         if (preferDates == "True") {
             let yesterday = new Date(new Date().setDate(new Date().getDate() - 1));
@@ -114,9 +115,9 @@ export default {
             var yyyy = today.getFullYear();
             today = mm + '-' + dd + '-' + yyyy;
             if (window.roamAlphaAPI.graph.type === "offline") {
-                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + today;
+                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + today;
             } else {
-                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + today;
+                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + today;
             }
             window.open(roamuri, "_self");
         }
@@ -139,9 +140,9 @@ export default {
                     });
             }
             if (window.roamAlphaAPI.graph.type === "offline") {
-                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
+                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
             } else {
-                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
             }
             window.open(roamuri, "_self");
         }
@@ -165,9 +166,9 @@ export default {
             }
 
             if (window.roamAlphaAPI.graph.type === "offline") {
-                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
+                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
             } else {
-                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
             }
             window.open(roamuri, "_self");
         }
