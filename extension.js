@@ -113,7 +113,11 @@ export default {
             var mm = String(today.getMonth() + 1).padStart(2, '0');
             var yyyy = today.getFullYear();
             today = mm + '-' + dd + '-' + yyyy;
-            let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + today;
+            if (window.roamAlphaAPI.graph.type === "offline") {
+                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + today;
+            } else {
+                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + today;
+            }
             window.open(roamuri, "_self");
         }
         async function gotoYesterday() {
@@ -134,7 +138,11 @@ export default {
                         block: { string: "", uid: newBlockUid }
                     });
             }
-            let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+            if (window.roamAlphaAPI.graph.type === "offline") {
+                let roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
+            } else {
+                let roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
+            }
             window.open(roamuri, "_self");
         }
         async function gotoTomorrow() {
