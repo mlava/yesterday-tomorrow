@@ -160,18 +160,9 @@ export default {
         }
     },
     onunload: () => {
-        todayTomorrow.remove();
-        /*
-        var divSpacer = document.createElement('div');
-        divSpacer.classList.add('rm-topbar__left-spacer');
-        divSpacer.innerHTML = "";
-        var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
-        var topBarRow = topBarContent.childNodes[1];
-
-        if (topBarContent && topBarRow) {
-            topBarRow.parentNode.insertBefore(divSpacer, topBarRow);
+        if (document.getElementById("todayTomorrow")) {
+            document.getElementById("todayTomorrow").remove();
         }
-        */
     }
 }
 
