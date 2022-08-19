@@ -20,7 +20,7 @@ export default {
     onload: ({ extensionAPI }) => {
         extensionAPI.settings.panel.create(config);
         var preferDates, datestyle, yDate, tDate;
-        
+
         if (extensionAPI.settings.get("ytt-dates") == true) {
             preferDates = "True";
             if (extensionAPI.settings.get("ytt-datesStyle") == true) {
@@ -29,10 +29,6 @@ export default {
         } else {
             preferDates = "False";
         }
-        
-        var currentDate;
-        var dbname = window.location.href.split('/')[5];
-        var roamuri;
 
         if (preferDates == "True") {
             let yesterday = new Date(new Date().setDate(new Date().getDate() - 1));
@@ -43,7 +39,7 @@ export default {
             var tMonth = (tomorrow.getMonth() + 1).toString();
             var tDay = tomorrow.getDate().toString();
             var tYear = tomorrow.getFullYear().toString();
-            
+
             if (datestyle == "US") {
                 yDate = yMonth.padStart(2, "0") + "/" + yDay.padStart(2, "0") + "/" + yYear;
                 tDate = tMonth.padStart(2, "0") + "/" + tDay.padStart(2, "0") + "/" + tYear;
@@ -118,70 +114,6 @@ export default {
             var spacerDiv = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div.rm-topbar > div.rm-topbar__left-spacer");
             //spacerDiv.remove();
         }
-        function gotoToday() {
-            var today = new Date();
-            var dd = String(today.getDate()).padStart(2, '0');
-            var mm = String(today.getMonth() + 1).padStart(2, '0');
-            var yyyy = today.getFullYear();
-            today = mm + '-' + dd + '-' + yyyy;
-            if (window.roamAlphaAPI.graph.type === "offline") {
-                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + today;
-            } else {
-                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + today;
-            }
-            window.open(roamuri, "_self");
-        }
-        async function gotoYesterday() {
-            var date = new Date();
-            date.setDate(date.getDate() - 1);
-            var currentMonth = (date.getMonth() + 1).toString();
-            var currentDay = date.getDate().toString();
-            var currentYear = date.getFullYear().toString();
-            currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
-            var titleDate = convertToRoamDate(currentDate);
-            await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
-            var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
-            if (results == null) {
-                let newBlockUid = roamAlphaAPI.util.generateUID();
-                await window.roamAlphaAPI.createBlock(
-                    {
-                        location: { "parent-uid": currentDate, order: 0 },
-                        block: { string: "", uid: newBlockUid }
-                    });
-            }
-            if (window.roamAlphaAPI.graph.type === "offline") {
-                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
-            } else {
-                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
-            }
-            window.open(roamuri, "_self");
-        }
-        async function gotoTomorrow() {
-            var date = new Date();
-            date.setDate(date.getDate() + 1);
-            var currentMonth = (date.getMonth() + 1).toString();
-            var currentDay = date.getDate().toString();
-            var currentYear = date.getFullYear().toString();
-            currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
-            var titleDate = convertToRoamDate(currentDate);
-            await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
-            var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
-            if (results == null) {
-                let newBlockUid = roamAlphaAPI.util.generateUID();
-                await window.roamAlphaAPI.createBlock(
-                    {
-                        location: { "parent-uid": currentDate, order: 0 },
-                        block: { string: "", uid: newBlockUid }
-                    });
-            }
-
-            if (window.roamAlphaAPI.graph.type === "offline") {
-                roamuri = "https://roamresearch.com/#/offline/" + dbname + "/page/" + currentDate;
-            } else {
-                roamuri = "https://roamresearch.com/#/app/" + dbname + "/page/" + currentDate;
-            }
-            window.open(roamuri, "_self");
-        }
     },
     onunload: () => {
         if (document.getElementById("todayTomorrow")) {
@@ -201,4 +133,64 @@ function convertToRoamDate(dateString) {
         ? "th"
         : ["st", "nd", "rd"][day % 10 - 1];
     return "" + monthName + " " + day + suffix + ", " + year + "";
+}
+
+function goToDate(date) {
+    window.roamAlphaAPI.ui.mainWindow
+        .openBlock({
+            block:
+                { uid: date }
+        })
+}
+
+
+function gotoToday() {
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var yyyy = today.getFullYear();
+    today = mm + '-' + dd + '-' + yyyy;
+    goToDate(today);
+}
+
+async function gotoYesterday() {
+    var date = new Date();
+    date.setDate(date.getDate() - 1);
+    var currentMonth = (date.getMonth() + 1).toString();
+    var currentDay = date.getDate().toString();
+    var currentYear = date.getFullYear().toString();
+    var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
+    var titleDate = convertToRoamDate(currentDate);
+    await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
+    if (results == null) {
+        let newBlockUid = roamAlphaAPI.util.generateUID();
+        await window.roamAlphaAPI.createBlock(
+            {
+                location: { "parent-uid": currentDate, order: 0 },
+                block: { string: "", uid: newBlockUid }
+            });
+    }
+    goToDate(currentDate);
+}
+
+async function gotoTomorrow() {
+    var date = new Date();
+    date.setDate(date.getDate() + 1);
+    var currentMonth = (date.getMonth() + 1).toString();
+    var currentDay = date.getDate().toString();
+    var currentYear = date.getFullYear().toString();
+    var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
+    var titleDate = convertToRoamDate(currentDate);
+    await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
+    if (results == null) {
+        let newBlockUid = roamAlphaAPI.util.generateUID();
+        await window.roamAlphaAPI.createBlock(
+            {
+                location: { "parent-uid": currentDate, order: 0 },
+                block: { string: "", uid: newBlockUid }
+            });
+    }
+    goToDate(currentDate);
 }
