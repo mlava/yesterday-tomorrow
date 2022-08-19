@@ -65,12 +65,15 @@ export default {
             div.onclick = gotoYesterday;
             var span = document.createElement('span');
             span.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-direction-left');
-            if (preferDates == "True") {
-                span.innerHTML = "" + yDate;
-            } else {
-                span.innerHTML = "Yesterday";
-            }
             div.prepend(span);
+            var span3 = document.createElement('span');
+            span3.classList.add('yt-hide');
+            if (preferDates == "True") {
+                span3.innerHTML = "" + yDate;
+            } else {
+                span3.innerHTML = "Yesterday";
+            }
+            div.append(span3);
             divParent.append(div);
 
             var divCenter = document.createElement('div');
@@ -80,8 +83,12 @@ export default {
             divCenter.onclick = gotoToday;
             var spanCenter = document.createElement('span');
             spanCenter.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-timeline-events');
-            spanCenter.innerHTML = "Today";
+            spanCenter.innerHTML = "";
             divCenter.prepend(spanCenter);
+            var spanCenter1 = document.createElement('span');
+            spanCenter1.classList.add('yt-hide');
+            spanCenter1.innerHTML = "Today";
+            divCenter.append(spanCenter1);
             divParent.append(divCenter);
 
             var div1 = document.createElement('div');
@@ -91,12 +98,15 @@ export default {
             div1.onclick = gotoTomorrow;
             var span1 = document.createElement('span');
             span1.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-direction-right');
-            if (preferDates == "True") {
-                span1.innerHTML = "" + tDate;
-            } else {
-                span1.innerHTML = "Tomorrow";
-            }
             div1.append(span1);
+            var span2 = document.createElement('span');
+            span2.classList.add('yt-hide');
+            if (preferDates == "True") {
+                span2.innerHTML = "" + tDate;
+            } else {
+                span2.innerHTML = "Tomorrow";
+            }
+            div1.append(span2);
             divParent.append(div1);
 
             var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
