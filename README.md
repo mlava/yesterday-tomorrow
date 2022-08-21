@@ -11,3 +11,5 @@ You can choose to display Yesterday and Tomorrow as dates, using international o
 The buttons will automatically shrink to show only the icons with the text on smaller screen sizes.
 
 ![image](https://user-images.githubusercontent.com/6857790/185626285-a79a3229-4d04-43fb-be83-0ef36d3ec52d.png)
+
+Hold shift to launch the page in the right sidebar.
