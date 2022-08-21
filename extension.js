@@ -10,7 +10,13 @@ const config = {
         {
             id: "ytt-datesStyle",
             name: "Display US dates",
-            description: "Display as MM/DD/YYYY instead of DD/MM/YYYY",
+            description: "Display labels as MM/DD/YYYY instead of DD/MM/YYYY",
+            action: { type: "switch" },
+        },
+        {
+            id: "ytt-labels",
+            name: "Hide text labels",
+            description: "Display icons only, without labels",
             action: { type: "switch" },
         },
     ]
@@ -20,6 +26,7 @@ export default {
     onload: ({ extensionAPI }) => {
         extensionAPI.settings.panel.create(config);
         var preferDates, datestyle, yDate, tDate;
+        var hideLabels = false;
 
         if (extensionAPI.settings.get("ytt-dates") == true) {
             preferDates = "True";
@@ -28,6 +35,9 @@ export default {
             }
         } else {
             preferDates = "False";
+        }
+        if (extensionAPI.settings.get("ytt-labels") == true) {
+            hideLabels = true;
         }
 
         if (preferDates == "True") {
@@ -62,14 +72,16 @@ export default {
             var span = document.createElement('span');
             span.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-direction-left');
             div.prepend(span);
-            var span3 = document.createElement('span');
-            span3.classList.add('yt-hide');
-            if (preferDates == "True") {
-                span3.innerHTML = "" + yDate;
-            } else {
-                span3.innerHTML = "Yesterday";
+            if (hideLabels == false) {
+                var span3 = document.createElement('span');
+                span3.classList.add('yt-hide');
+                if (preferDates == "True") {
+                    span3.innerHTML = "" + yDate;
+                } else {
+                    span3.innerHTML = "Yesterday";
+                }
+                div.append(span3);
             }
-            div.append(span3);
             divParent.append(div);
 
             var divCenter = document.createElement('div');
@@ -81,10 +93,13 @@ export default {
             spanCenter.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-timeline-events');
             spanCenter.innerHTML = "";
             divCenter.prepend(spanCenter);
-            var spanCenter1 = document.createElement('span');
-            spanCenter1.classList.add('yt-hide');
-            spanCenter1.innerHTML = "Today";
-            divCenter.append(spanCenter1);
+
+            if (hideLabels == false) {
+                var spanCenter1 = document.createElement('span');
+                spanCenter1.classList.add('yt-hide');
+                spanCenter1.innerHTML = "Today";
+                divCenter.append(spanCenter1);
+            }
             divParent.append(divCenter);
 
             var div1 = document.createElement('div');
@@ -95,14 +110,16 @@ export default {
             var span1 = document.createElement('span');
             span1.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-direction-right');
             div1.append(span1);
-            var span2 = document.createElement('span');
-            span2.classList.add('yt-hide');
-            if (preferDates == "True") {
-                span2.innerHTML = "" + tDate;
-            } else {
-                span2.innerHTML = "Tomorrow";
+            if (hideLabels == false) {
+                var span2 = document.createElement('span');
+                span2.classList.add('yt-hide');
+                if (preferDates == "True") {
+                    span2.innerHTML = "" + tDate;
+                } else {
+                    span2.innerHTML = "Tomorrow";
+                }
+                div1.append(span2);
             }
-            div1.append(span2);
             divParent.append(div1);
 
             var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
