@@ -111,8 +111,6 @@ export default {
             if (topBarContent && topBarRow) {
                 topBarRow.parentNode.insertBefore(divParent, topBarRow);
             }
-            var spacerDiv = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div.rm-topbar > div.rm-topbar__left-spacer");
-            //spacerDiv.remove();
         }
     },
     onunload: () => {
@@ -135,25 +133,41 @@ function convertToRoamDate(dateString) {
     return "" + monthName + " " + day + suffix + ", " + year + "";
 }
 
-function goToDate(date) {
-    window.roamAlphaAPI.ui.mainWindow
-        .openBlock({
-            block:
-                { uid: date }
-        })
+function goToDate(date, shiftButton) {
+    if (shiftButton) {
+        window.roamAlphaAPI.ui.rightSidebar
+            .addWindow({
+                window:
+                    { type: 'outline', 'block-uid': date }
+            })
+    } else {
+        window.roamAlphaAPI.ui.mainWindow
+            .openBlock({
+                block:
+                    { uid: date }
+            })
+    }
 }
 
 
-function gotoToday() {
+function gotoToday(e) {
+    var shiftButton = false;
+    if (e.shiftKey) {
+        shiftButton = true;
+    }
     var today = new Date();
     var dd = String(today.getDate()).padStart(2, '0');
     var mm = String(today.getMonth() + 1).padStart(2, '0');
     var yyyy = today.getFullYear();
     today = mm + '-' + dd + '-' + yyyy;
-    goToDate(today);
+    goToDate(today, shiftButton);
 }
 
-async function gotoYesterday() {
+async function gotoYesterday(e) {
+    var shiftButton = false;
+    if (e.shiftKey) {
+        shiftButton = true;
+    }
     var date = new Date();
     date.setDate(date.getDate() - 1);
     var currentMonth = (date.getMonth() + 1).toString();
@@ -171,10 +185,14 @@ async function gotoYesterday() {
                 block: { string: "", uid: newBlockUid }
             });
     }
-    goToDate(currentDate);
+    goToDate(currentDate, shiftButton);
 }
 
-async function gotoTomorrow() {
+async function gotoTomorrow(e) {
+    var shiftButton = false;
+    if (e.shiftKey) {
+        shiftButton = true;
+    }
     var date = new Date();
     date.setDate(date.getDate() + 1);
     var currentMonth = (date.getMonth() + 1).toString();
@@ -192,5 +210,5 @@ async function gotoTomorrow() {
                 block: { string: "", uid: newBlockUid }
             });
     }
-    goToDate(currentDate);
+    goToDate(currentDate, shiftButton);
 }
