@@ -202,7 +202,12 @@ async function gotoYesterday(e) {
     var currentYear = date.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
-    await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    var page = await window.roamAlphaAPI.q(`
+          [:find ?e
+              :where [?e :node/title "${titleDate}"]]`);
+    if (page.length < 1) { // create new page
+        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    }
     var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
     if (results == null) {
         let newBlockUid = roamAlphaAPI.util.generateUID();
@@ -223,7 +228,12 @@ async function gotoTomorrow(e) {
     var currentYear = date.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
-    await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    var page = await window.roamAlphaAPI.q(`
+    [:find ?e
+        :where [?e :node/title "${titleDate}"]]`);
+    if (page.length < 1) { // create new page
+        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+    }
     var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
     if (results == null) {
         let newBlockUid = roamAlphaAPI.util.generateUID();
