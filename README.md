@@ -2,6 +2,7 @@ This extension allows you to have buttons for Yesterday, Today and Tomorrow Dail
 
 **New:**
 - Perpetual Mode allows you to use the yesterday and tomorrow buttons as backward and forward buttons instead. Each click will go back or forward another day. Date labels will update to always show the correct relative dates. Of course, you can keep perpetual mode switched off and just use the buttons as they've always functioned as yesterday, today and tomorrow buttons.
+- Prefer log page to today's date - turn this on if you prefer the Today button to navigate to the RR log page rather than the dated page for Today.
 
 ![image](https://user-images.githubusercontent.com/6857790/184466643-ecc8c24f-d6b4-4738-a8a9-cc74322c6b46.png)
 
