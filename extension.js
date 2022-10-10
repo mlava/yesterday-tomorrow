@@ -1,7 +1,9 @@
 var datestyle = false;
 var yDate, tDate;
 var hideLabels = false;
-var preferDates = false
+var preferDates = false;
+var perpetual = false;
+var thisDate;
 
 export default {
     onload: ({ extensionAPI }) => {
@@ -35,6 +37,15 @@ export default {
                         onChange: (evt) => { datestyle = evt.target.checked; createDiv(); } // update div onchange
                     },
                 },
+                {
+                    id: "ytt-perpetual",
+                    name: "Perpetual Mode",
+                    description: "Yesterday and Tomorrow buttons step back or forward one day on each press",
+                    action: {
+                        type: "switch",
+                        onChange: (evt) => { perpetual = evt.target.checked; createDiv(); } // update div onchange
+                    },
+                },
             ]
         };
 
@@ -50,6 +61,9 @@ export default {
         if (extensionAPI.settings.get("ytt-labels") == true) {
             hideLabels = true;
         }
+        if (extensionAPI.settings.get("ytt-perpetual") == true) {
+            perpetual = true;
+        }
 
         createDiv(); //onload
     },
@@ -60,12 +74,51 @@ export default {
     }
 }
 
-function createDiv() {
+async function createDiv() {
     if (document.getElementById("todayTomorrow")) {
         document.getElementById("todayTomorrow").remove();
     }
+    if (preferDates == true && perpetual == true) {
+        var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
+        if (!startBlock) {
+            var uri = window.location.href;
+            const regex = /^https:\/\/roamresearch.com\/#\/(app|offline)\/\w+$/; //today's DNP
+            if (regex.test(uri)) { // this is Daily Notes for today
+                var today = new Date();
+                var dd = String(today.getDate()).padStart(2, '0');
+                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                var yyyy = today.getFullYear();
+                thisDate = new Date(yyyy, mm, dd);
+            }
+        } else {
+            let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
+            var info = await window.roamAlphaAPI.q(q);
+            const regex = /\d{2}-\d{2}-\d{4}/;
+            if (regex.test(info[0][0].uid)) { // dated DNP
+                let dateBits = info[0][0].uid.split("-");
+                let mm = String(parseInt(dateBits[0]) - 1);
+                thisDate = new Date(dateBits[2], mm, dateBits[1]);
+            } else { // not a dated DNP
+                thisDate = new Date(new Date().setDate(new Date().getDate()));
+            }
+        }
+        let yesterday = new Date(thisDate.setDate(thisDate.getDate() - 1));
+        var yMonth = (yesterday.getMonth() + 1).toString();
+        var yDay = yesterday.getDate().toString();
+        var yYear = yesterday.getFullYear().toString();
+        let tomorrow = new Date(thisDate.setDate(thisDate.getDate() + 2)); // account for subtracting one for yesterday
+        var tMonth = (tomorrow.getMonth() + 1).toString();
+        var tDay = tomorrow.getDate().toString();
+        var tYear = tomorrow.getFullYear().toString();
 
-    if (preferDates == true) {
+        if (datestyle == true) {
+            yDate = yMonth.padStart(2, "0") + "/" + yDay.padStart(2, "0") + "/" + yYear;
+            tDate = tMonth.padStart(2, "0") + "/" + tDay.padStart(2, "0") + "/" + tYear;
+        } else {
+            yDate = yDay.padStart(2, "0") + "/" + yMonth.padStart(2, "0") + "/" + yYear;
+            tDate = tDay.padStart(2, "0") + "/" + tMonth.padStart(2, "0") + "/" + tYear;
+        }
+    } else if (preferDates == true && perpetual == false) {
         let yesterday = new Date(new Date().setDate(new Date().getDate() - 1));
         var yMonth = (yesterday.getMonth() + 1).toString();
         var yDay = yesterday.getDate().toString();
@@ -102,6 +155,8 @@ function createDiv() {
         span3.classList.add('yt-hide');
         if (preferDates == true) {
             span3.innerHTML = "" + yDate;
+        } else if (perpetual == true) {
+            span3.innerHTML = "-1";
         } else {
             span3.innerHTML = "Yesterday";
         }
@@ -140,6 +195,8 @@ function createDiv() {
         span2.classList.add('yt-hide');
         if (preferDates == true) {
             span2.innerHTML = "" + tDate;
+        } else if (perpetual == true) {
+            span2.innerHTML = "+1";
         } else {
             span2.innerHTML = "Tomorrow";
         }
@@ -153,7 +210,6 @@ function createDiv() {
     if (topBarContent && topBarRow) {
         topBarRow.parentNode.insertBefore(divParent, topBarRow);
     }
-
 }
 
 function convertToRoamDate(dateString) {
@@ -169,12 +225,14 @@ function convertToRoamDate(dateString) {
     return "" + monthName + " " + day + suffix + ", " + year + "";
 }
 
-function goToDate(date, shiftButton) {
+async function goToDate(date, shiftButton) {
     if (shiftButton) {
         window.roamAlphaAPI.ui.rightSidebar.addWindow({ window: { type: 'outline', 'block-uid': date } })
     } else {
         window.roamAlphaAPI.ui.mainWindow.openBlock({ block: { uid: date } })
     }
+    await sleep(500); // wait for new page then update the buttons
+    createDiv();
 }
 
 function gotoToday(e) {
@@ -195,11 +253,38 @@ async function gotoYesterday(e) {
     if (e.shiftKey) {
         shiftButton = true;
     }
-    var date = new Date();
-    date.setDate(date.getDate() - 1);
-    var currentMonth = (date.getMonth() + 1).toString();
-    var currentDay = date.getDate().toString();
-    var currentYear = date.getFullYear().toString();
+    if (perpetual) {
+        var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
+        if (!startBlock) {
+            var uri = window.location.href;
+            const regex = /^https:\/\/roamresearch.com\/#\/(app|offline)\/\w+$/; //today's DNP
+            if (regex.test(uri)) { // this is Daily Notes for today
+                var today = new Date();
+                var dd = String(today.getDate()).padStart(2, '0');
+                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                var yyyy = today.getFullYear();
+                thisDate = new Date(yyyy, mm, dd);
+            }
+        } else {
+            let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
+            var info = await window.roamAlphaAPI.q(q);
+            const regex = /\d{2}-\d{2}-\d{4}/;
+            if (regex.test(info[0][0].uid)) { // dated DNP
+                let dateBits = info[0][0].uid.split("-");
+                let mm = String(parseInt(dateBits[0]) - 1);
+                thisDate = new Date(dateBits[2], mm, dateBits[1]);
+            } else { // not a dated DNP
+                thisDate = new Date(new Date().setDate(new Date().getDate()));
+            }
+        }
+    } else {
+        thisDate = new Date();
+    }
+
+    thisDate.setDate(thisDate.getDate() - 1);
+    var currentMonth = (thisDate.getMonth() + 1).toString();
+    var currentDay = thisDate.getDate().toString();
+    var currentYear = thisDate.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
     var page = await window.roamAlphaAPI.q(`
@@ -221,11 +306,38 @@ async function gotoTomorrow(e) {
     if (e.shiftKey) {
         shiftButton = true;
     }
-    var date = new Date();
-    date.setDate(date.getDate() + 1);
-    var currentMonth = (date.getMonth() + 1).toString();
-    var currentDay = date.getDate().toString();
-    var currentYear = date.getFullYear().toString();
+    if (perpetual) {
+        var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
+        if (!startBlock) {
+            var uri = window.location.href;
+            const regex = /^https:\/\/roamresearch.com\/#\/(app|offline)\/\w+$/; //today's DNP
+            if (regex.test(uri)) { // this is Daily Notes for today
+                var today = new Date();
+                var dd = String(today.getDate()).padStart(2, '0');
+                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                var yyyy = today.getFullYear();
+                thisDate = new Date(yyyy, mm, dd);
+            }
+        } else {
+            let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
+            var info = await window.roamAlphaAPI.q(q);
+            const regex = /\d{2}-\d{2}-\d{4}/;
+            if (regex.test(info[0][0].uid)) { // dated DNP
+                let dateBits = info[0][0].uid.split("-");
+                let mm = String(parseInt(dateBits[0]) - 1);
+                thisDate = new Date(dateBits[2], mm, dateBits[1]);
+            } else { // not a dated DNP
+                thisDate = new Date(new Date().setDate(new Date().getDate()));
+            }
+        }
+    } else {
+        thisDate = new Date();
+    }
+
+    thisDate.setDate(thisDate.getDate() + 1);
+    var currentMonth = (thisDate.getMonth() + 1).toString();
+    var currentDay = thisDate.getDate().toString();
+    var currentYear = thisDate.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
     var page = await window.roamAlphaAPI.q(`
@@ -240,4 +352,8 @@ async function gotoTomorrow(e) {
         await window.roamAlphaAPI.createBlock({ location: { "parent-uid": currentDate, order: 0 }, block: { string: "", uid: newBlockUid } });
     }
     goToDate(currentDate, shiftButton);
+}
+
+async function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
