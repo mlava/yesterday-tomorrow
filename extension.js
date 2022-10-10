@@ -3,6 +3,7 @@ var yDate, tDate;
 var hideLabels = false;
 var preferDates = false;
 var perpetual = false;
+var preferLog = false;
 var thisDate;
 
 export default {
@@ -46,6 +47,15 @@ export default {
                         onChange: (evt) => { perpetual = evt.target.checked; createDiv(); } // update div onchange
                     },
                 },
+                {
+                    id: "ytt-preferLog",
+                    name: "Prefer Log page",
+                    description: "Today button navigates to log page not today's date",
+                    action: {
+                        type: "switch",
+                        onChange: (evt) => { preferLog = evt.target.checked; createDiv(); } // update div onchange
+                    },
+                },
             ]
         };
 
@@ -63,6 +73,9 @@ export default {
         }
         if (extensionAPI.settings.get("ytt-perpetual") == true) {
             perpetual = true;
+        }
+        if (extensionAPI.settings.get("ytt-preferLog") == true) {
+            preferLog = true;
         }
 
         createDiv(); //onload
@@ -168,7 +181,11 @@ async function createDiv() {
     divCenter.classList.add('flex-items');
     divCenter.innerHTML = "";
     divCenter.id = 'todayDiv';
-    divCenter.onclick = gotoToday;
+    if (preferLog) {
+        divCenter.onclick = gotoLog;
+    } else {
+        divCenter.onclick = gotoToday;
+    }
     var spanCenter = document.createElement('span');
     spanCenter.classList.add('bp3-button', 'bp3-minimal', 'bp3-small', 'bp3-icon-timeline-events');
     spanCenter.innerHTML = "";
@@ -248,6 +265,10 @@ function gotoToday(e) {
     goToDate(today, shiftButton);
 }
 
+async function gotoLog() {
+    await window.roamAlphaAPI.ui.mainWindow.openDailyNotes();
+}
+
 async function gotoYesterday(e) {
     var shiftButton = false;
     if (e.shiftKey) {
@@ -257,7 +278,7 @@ async function gotoYesterday(e) {
         var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
         if (!startBlock) {
             var uri = window.location.href;
-            const regex = /^https:\/\/roamresearch.com\/#\/(app|offline)\/\w+$/; //today's DNP
+            const regex = /^https:\/\/roamresearch.com\/.+\/(app|offline)\/\w+$/; //today's DNP
             if (regex.test(uri)) { // this is Daily Notes for today
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
@@ -310,7 +331,7 @@ async function gotoTomorrow(e) {
         var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
         if (!startBlock) {
             var uri = window.location.href;
-            const regex = /^https:\/\/roamresearch.com\/#\/(app|offline)\/\w+$/; //today's DNP
+            const regex = /^https:\/\/roamresearch.com\/.+\/(app|offline)\/\w+$/; //today's DNP
             if (regex.test(uri)) { // this is Daily Notes for today
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
