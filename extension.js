@@ -221,10 +221,12 @@ async function createDiv() {
     }
     divParent.append(div1);
 
-    var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
-    var topBarRow = topBarContent.childNodes[1];
-
-    if (topBarContent && topBarRow) {
+    if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
+        let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
+        electronArrows.after(divParent);
+    } else {
+        var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
+        var topBarRow = topBarContent.childNodes[1];
         topBarRow.parentNode.insertBefore(divParent, topBarRow);
     }
 }
@@ -282,7 +284,7 @@ async function gotoYesterday(e) {
             if (regex.test(uri)) { // this is Daily Notes for today
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
-                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                var mm = String(today.getMonth()).padStart(2, '0');
                 var yyyy = today.getFullYear();
                 thisDate = new Date(yyyy, mm, dd);
             }
@@ -335,7 +337,7 @@ async function gotoTomorrow(e) {
             if (regex.test(uri)) { // this is Daily Notes for today
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
-                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                var mm = String(today.getMonth()).padStart(2, '0');
                 var yyyy = today.getFullYear();
                 thisDate = new Date(yyyy, mm, dd);
             }
