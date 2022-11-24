@@ -5,6 +5,7 @@ var preferDates = false;
 var perpetual = false;
 var preferLog = false;
 var thisDate;
+let observer = undefined;
 
 export default {
     onload: ({ extensionAPI }) => {
@@ -59,6 +60,31 @@ export default {
             ]
         };
 
+        async function initiateObserver() {
+            const targetNode1 = document.getElementsByClassName("rm-topbar")[0];
+            const config = { attributes: false, childList: true, subtree: true };
+            const callback = function (mutationsList, observer) {
+                for (const mutation of mutationsList) {
+                    if (mutation.addedNodes[0]) {
+                        for (var i = 0; i < mutation.addedNodes[0]?.classList.length; i++) {
+                            if (mutation.addedNodes[0]?.classList[i] == "rm-open-left-sidebar-btn") { // left sidebar has been closed
+                                createDiv();
+                            }
+                        }
+                    } else if (mutation.removedNodes[0]) {
+                        for (var i = 0; i < mutation.removedNodes[0]?.classList.length; i++) {
+                            if (mutation.removedNodes[0]?.classList[i] == "rm-open-left-sidebar-btn") { // left sidebar has been opened
+                                createDiv();
+                            }
+                        }
+                    }
+                }
+            };
+            observer = new MutationObserver(callback);
+            observer.observe(targetNode1, config);
+        }
+        initiateObserver();
+
         extensionAPI.settings.panel.create(config);
         if (extensionAPI.settings.get("ytt-dates") == true) {
             preferDates = true;
@@ -84,6 +110,7 @@ export default {
         if (document.getElementById("todayTomorrow")) {
             document.getElementById("todayTomorrow").remove();
         }
+        observer.disconnect();
     }
 }
 
@@ -221,14 +248,26 @@ async function createDiv() {
     }
     divParent.append(div1);
 
-    if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
-        let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
-        electronArrows.after(divParent);
+    if (document.querySelector(".rm-open-left-sidebar-btn")) {
+        if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
+            let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
+            electronArrows.after(divParent);
+        } else {
+            let sidebarButton = document.querySelector(".rm-open-left-sidebar-btn");
+            sidebarButton.after(divParent);
+        }
     } else {
-        var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
-        var topBarRow = topBarContent.childNodes[1];
-        topBarRow.parentNode.insertBefore(divParent, topBarRow);
+        if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
+            let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
+            electronArrows.after(divParent);
+        } else {
+            var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
+            var topBarRow = topBarContent.childNodes[1];
+            topBarRow.parentNode.insertBefore(divParent, topBarRow);
+        }
     }
+    
+
 }
 
 function convertToRoamDate(dateString) {
