@@ -249,7 +249,11 @@ async function createDiv() {
     divParent.append(div1);
 
     if (document.querySelector(".rm-open-left-sidebar-btn")) {
-        if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
+        await sleep(20);
+        if (document.querySelector("#workspaces")) { // Workspaces extension also installed, so place this to right
+            let workspaces = document.querySelector("#workspaces");
+            workspaces.parentNode.insertBefore(divParent, workspaces);
+        } else if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
             let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
             electronArrows.after(divParent);
         } else {
@@ -257,6 +261,7 @@ async function createDiv() {
             sidebarButton.after(divParent);
         }
     } else {
+        await sleep(20);
         if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
             let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
             electronArrows.after(divParent);
@@ -266,7 +271,7 @@ async function createDiv() {
             topBarRow.parentNode.insertBefore(divParent, topBarRow);
         }
     }
-    
+
 
 }
 
