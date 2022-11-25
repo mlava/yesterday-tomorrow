@@ -294,8 +294,6 @@ async function goToDate(date, shiftButton) {
     } else {
         window.roamAlphaAPI.ui.mainWindow.openBlock({ block: { uid: date } })
     }
-    await sleep(500); // wait for new page then update the buttons
-    createDiv();
 }
 
 function gotoToday(e) {
