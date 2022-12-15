@@ -296,7 +296,7 @@ async function goToDate(date, shiftButton) {
     }
 }
 
-function gotoToday(e) {
+async function gotoToday(e) {
     var shiftButton = false;
     if (e.shiftKey) {
         shiftButton = true;
@@ -306,6 +306,18 @@ function gotoToday(e) {
     var mm = String(today.getMonth() + 1).padStart(2, '0');
     var yyyy = today.getFullYear();
     today = mm + '-' + dd + '-' + yyyy;
+    var titleDate = convertToRoamDate(today);
+    var page = await window.roamAlphaAPI.q(`
+          [:find ?e
+              :where [?e :node/title "${titleDate}"]]`);
+    if (page.length < 1) { // create new page
+        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: today } });
+    }
+    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", today]);
+    if (results == null) {
+        let newBlockUid = roamAlphaAPI.util.generateUID();
+        await window.roamAlphaAPI.createBlock({ location: { "parent-uid": today, order: 0 }, block: { string: "", uid: newBlockUid } });
+    }
     goToDate(today, shiftButton);
 }
 
