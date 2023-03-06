@@ -275,19 +275,6 @@ async function createDiv() {
 
 }
 
-function convertToRoamDate(dateString) {
-    var parsedDate = dateString.split('-');
-    var year = parsedDate[2];
-    var month = Number(parsedDate[0]);
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    var monthName = months[month - 1];
-    var day = Number(parsedDate[1]);
-    let suffix = (day >= 4 && day <= 20) || (day >= 24 && day <= 30)
-        ? "th"
-        : ["st", "nd", "rd"][day % 10 - 1];
-    return "" + monthName + " " + day + suffix + ", " + year + "";
-}
-
 async function goToDate(date, shiftButton) {
     if (shiftButton) {
         window.roamAlphaAPI.ui.rightSidebar.addWindow({ window: { type: 'outline', 'block-uid': date } })
@@ -321,10 +308,6 @@ async function gotoToday(e) {
     goToDate(today, shiftButton);
 }
 
-async function gotoLog() {
-    await window.roamAlphaAPI.ui.mainWindow.openDailyNotes();
-}
-
 async function gotoYesterday(e) {
     var shiftButton = false;
     if (e.shiftKey) {
@@ -335,7 +318,7 @@ async function gotoYesterday(e) {
         if (!startBlock) {
             var uri = window.location.href;
             const regex = /^https:\/\/roamresearch.com\/.+\/(app|offline)\/\w+$/; //today's DNP
-            if (regex.test(uri)) { // this is Daily Notes for today
+            if (regex.test(uri) || uri.endsWith("/search")) { // this is Daily Notes for today, or it's search page and set date to today anyway
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
                 var mm = String(today.getMonth()).padStart(2, '0');
@@ -364,18 +347,23 @@ async function gotoYesterday(e) {
     var currentYear = thisDate.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
-    var page = await window.roamAlphaAPI.q(`
-          [:find ?e
-              :where [?e :node/title "${titleDate}"]]`);
+    var page = await window.roamAlphaAPI.q(`[:find (pull ?e [:block/uid]) :where [?e :node/title "${titleDate}"]]`)?.[0]?.[0]?.uid.toString();
+    if (page == undefined) {
+        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+        page = currentDate;
+    }
+    /*
+    var page = await window.roamAlphaAPI.q(`[:find ?e :where [?e :node/title "${titleDate}"]]`);
     if (page.length < 1) { // create new page
         await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
     }
-    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
+    */
+    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", page]);
     if (results == null) {
         let newBlockUid = roamAlphaAPI.util.generateUID();
-        await window.roamAlphaAPI.createBlock({ location: { "parent-uid": currentDate, order: 0 }, block: { string: "", uid: newBlockUid } });
+        await window.roamAlphaAPI.createBlock({ location: { "parent-uid": page, order: 0 }, block: { string: "", uid: newBlockUid } });
     }
-    goToDate(currentDate, shiftButton);
+    goToDate(page, shiftButton);
 }
 
 async function gotoTomorrow(e) {
@@ -388,7 +376,7 @@ async function gotoTomorrow(e) {
         if (!startBlock) {
             var uri = window.location.href;
             const regex = /^https:\/\/roamresearch.com\/.+\/(app|offline)\/\w+$/; //today's DNP
-            if (regex.test(uri)) { // this is Daily Notes for today
+            if (regex.test(uri) || uri.endsWith("/search")) { // this is Daily Notes for today
                 var today = new Date();
                 var dd = String(today.getDate()).padStart(2, '0');
                 var mm = String(today.getMonth()).padStart(2, '0');
@@ -417,20 +405,42 @@ async function gotoTomorrow(e) {
     var currentYear = thisDate.getFullYear().toString();
     var currentDate = currentMonth.padStart(2, "0") + "-" + currentDay.padStart(2, "0") + "-" + currentYear;
     var titleDate = convertToRoamDate(currentDate);
-    var page = await window.roamAlphaAPI.q(`
-    [:find ?e
-        :where [?e :node/title "${titleDate}"]]`);
+    var page = await window.roamAlphaAPI.q(`[:find (pull ?e [:block/uid]) :where [?e :node/title "${titleDate}"]]`)?.[0]?.[0]?.uid.toString();
+    if (page == undefined) {
+        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
+        page = currentDate;
+    }
+    /*
+    var page = await window.roamAlphaAPI.q(`[:find ?e :where [?e :node/title "${titleDate}"]]`);
     if (page.length < 1) { // create new page
         await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: currentDate } });
     }
-    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", currentDate]);
+    */
+    var results = window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", page]);
     if (results == null) {
         let newBlockUid = roamAlphaAPI.util.generateUID();
-        await window.roamAlphaAPI.createBlock({ location: { "parent-uid": currentDate, order: 0 }, block: { string: "", uid: newBlockUid } });
+        await window.roamAlphaAPI.createBlock({ location: { "parent-uid": page, order: 0 }, block: { string: "", uid: newBlockUid } });
     }
-    goToDate(currentDate, shiftButton);
+    goToDate(page, shiftButton);
+}
+
+async function gotoLog() {
+    await window.roamAlphaAPI.ui.mainWindow.openDailyNotes();
 }
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function convertToRoamDate(dateString) {
+    var parsedDate = dateString.split('-');
+    var year = parsedDate[2];
+    var month = Number(parsedDate[0]);
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    var monthName = months[month - 1];
+    var day = Number(parsedDate[1]);
+    let suffix = (day >= 4 && day <= 20) || (day >= 24 && day <= 30)
+        ? "th"
+        : ["st", "nd", "rd"][day % 10 - 1];
+    return "" + monthName + " " + day + suffix + ", " + year + "";
 }
