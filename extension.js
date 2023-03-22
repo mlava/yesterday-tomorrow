@@ -60,6 +60,19 @@ export default {
             ]
         };
 
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Next Day",
+            callback: () => gotoTomorrow()
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Previous Day",
+            callback: () => gotoYesterday()
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Today",
+            callback: () => gotoToday()
+        });
+
         async function initiateObserver() {
             const targetNode1 = document.getElementsByClassName("rm-topbar")[0];
             const config = { attributes: false, childList: true, subtree: true };
@@ -285,7 +298,7 @@ async function goToDate(date, shiftButton) {
 
 async function gotoToday(e) {
     var shiftButton = false;
-    if (e.shiftKey) {
+    if (e && e.shiftKey) {
         shiftButton = true;
     }
     var today = new Date();
@@ -310,7 +323,7 @@ async function gotoToday(e) {
 
 async function gotoYesterday(e) {
     var shiftButton = false;
-    if (e.shiftKey) {
+    if (e && e.shiftKey) {
         shiftButton = true;
     }
     if (perpetual) {
@@ -328,6 +341,7 @@ async function gotoYesterday(e) {
         } else {
             let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
             var info = await window.roamAlphaAPI.q(q);
+            console.info(info);
             const regex = /\d{2}-\d{2}-\d{4}/;
             if (regex.test(info[0][0].uid)) { // dated DNP
                 let dateBits = info[0][0].uid.split("-");
@@ -368,7 +382,7 @@ async function gotoYesterday(e) {
 
 async function gotoTomorrow(e) {
     var shiftButton = false;
-    if (e.shiftKey) {
+    if (e && e.shiftKey) {
         shiftButton = true;
     }
     if (perpetual) {
@@ -386,6 +400,7 @@ async function gotoTomorrow(e) {
         } else {
             let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
             var info = await window.roamAlphaAPI.q(q);
+            console.info(info);
             const regex = /\d{2}-\d{2}-\d{4}/;
             if (regex.test(info[0][0].uid)) { // dated DNP
                 let dateBits = info[0][0].uid.split("-");
