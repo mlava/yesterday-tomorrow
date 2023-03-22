@@ -1,7 +1,7 @@
 This extension allows you to have buttons for Yesterday, Today and Tomorrow Daily Notes Pages added to your Roam Top Bar.
 
 **New:**
-- Added commands for go to previous day, next day and today to Command Palette. This allows you to use Roam Hotkeys to create keyboard shortcuts to move dates. It even works with Perpetual Mode.
+- Added commands for go to previous day, next day and today to Command Palette. This allows you to use Roam Hotkeys to create keyboard shortcuts to move dates. You can create Hotkeys to open in the main window or the right sidebar. It even works with Perpetual Mode.
 - Perpetual Mode allows you to use the yesterday and tomorrow buttons as backward and forward buttons instead. Each click will go back or forward another day. Date labels will update to always show the correct relative dates. Of course, you can keep perpetual mode switched off and just use the buttons as they've always functioned as yesterday, today and tomorrow buttons.
 - Prefer log page to today's date - turn this on if you prefer the Today button to navigate to the RR log page rather than the dated page for Today.
 
