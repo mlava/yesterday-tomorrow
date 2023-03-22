@@ -341,14 +341,18 @@ async function gotoYesterday(e) {
         } else {
             let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
             var info = await window.roamAlphaAPI.q(q);
-            console.info(info);
             const regex = /\d{2}-\d{2}-\d{4}/;
             if (regex.test(info[0][0].uid)) { // dated DNP
                 let dateBits = info[0][0].uid.split("-");
                 let mm = String(parseInt(dateBits[0]) - 1);
                 thisDate = new Date(dateBits[2], mm, dateBits[1]);
-            } else { // not a dated DNP
-                thisDate = new Date(new Date().setDate(new Date().getDate()));
+            } else { // not a dated DNP - check for edge case DNP but non-standard uid
+                const regex = /^(?:(((Jan(uary)?|Ma(r(ch)?|y)|Jul(y)?|Aug(ust)?|Oct(ober)?|Dec(ember)?)\ 31)|((Jan(uary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sept|Nov|Dec)(ember)?)\ (0?[1-9]|([12]\d)|30))|(Feb(ruary)?\ (0?[1-9]|1\d|2[0-8]|(29(?=,\ ((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))))(nd|th|st)\,\ ((1[6-9]|[2-9]\d)\d{2}))/gm;
+                if (regex.test(info[0][0].title.toString())) { // this is a DNP with a weird uid
+                    thisDate = await window.roamAlphaAPI.util.pageTitleToDate(info[0][0].title.toString());
+                } else { // not a dated DNP
+                    thisDate = new Date(new Date().setDate(new Date().getDate()));
+                }
             }
         }
     } else {
@@ -400,14 +404,18 @@ async function gotoTomorrow(e) {
         } else {
             let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
             var info = await window.roamAlphaAPI.q(q);
-            console.info(info);
             const regex = /\d{2}-\d{2}-\d{4}/;
             if (regex.test(info[0][0].uid)) { // dated DNP
                 let dateBits = info[0][0].uid.split("-");
                 let mm = String(parseInt(dateBits[0]) - 1);
                 thisDate = new Date(dateBits[2], mm, dateBits[1]);
-            } else { // not a dated DNP
-                thisDate = new Date(new Date().setDate(new Date().getDate()));
+            } else { // not a dated DNP - check for edge case DNP but non-standard uid
+                const regex = /^(?:(((Jan(uary)?|Ma(r(ch)?|y)|Jul(y)?|Aug(ust)?|Oct(ober)?|Dec(ember)?)\ 31)|((Jan(uary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sept|Nov|Dec)(ember)?)\ (0?[1-9]|([12]\d)|30))|(Feb(ruary)?\ (0?[1-9]|1\d|2[0-8]|(29(?=,\ ((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))))(nd|th|st)\,\ ((1[6-9]|[2-9]\d)\d{2}))/gm;
+                if (regex.test(info[0][0].title.toString())) { // this is a DNP with a weird uid
+                    thisDate = await window.roamAlphaAPI.util.pageTitleToDate(info[0][0].title.toString());
+                } else { // not a dated DNP
+                    thisDate = new Date(new Date().setDate(new Date().getDate()));
+                }
             }
         }
     } else {
