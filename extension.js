@@ -61,16 +61,28 @@ export default {
         };
 
         extensionAPI.ui.commandPalette.addCommand({
-            label: "Go to Next Day",
-            callback: () => gotoTomorrow()
-        });
-        extensionAPI.ui.commandPalette.addCommand({
             label: "Go to Previous Day",
             callback: () => gotoYesterday()
         });
         extensionAPI.ui.commandPalette.addCommand({
             label: "Go to Today",
             callback: () => gotoToday()
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Next Day",
+            callback: () => gotoTomorrow()
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Previous Day (Sidebar)",
+            callback: () => gotoYesterday(false, true)
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Today (Sidebar)",
+            callback: () => gotoToday(false, true)
+        });
+        extensionAPI.ui.commandPalette.addCommand({
+            label: "Go to Next Day (Sidebar)",
+            callback: () => gotoTomorrow(false, true)
         });
 
         async function initiateObserver() {
@@ -296,11 +308,16 @@ async function goToDate(date, shiftButton) {
     }
 }
 
-async function gotoToday(e) {
+async function gotoToday(e, sidebar) {
     var shiftButton = false;
-    if (e && e.shiftKey) {
+    if (sidebar) {
         shiftButton = true;
+    } else {
+        if (e && e.shiftKey) {
+            shiftButton = true;
+        }
     }
+    
     var today = new Date();
     var dd = String(today.getDate()).padStart(2, '0');
     var mm = String(today.getMonth() + 1).padStart(2, '0');
@@ -321,11 +338,16 @@ async function gotoToday(e) {
     goToDate(today, shiftButton);
 }
 
-async function gotoYesterday(e) {
+async function gotoYesterday(e, sidebar) {
     var shiftButton = false;
-    if (e && e.shiftKey) {
+    if (sidebar) {
         shiftButton = true;
+    } else {
+        if (e && e.shiftKey) {
+            shiftButton = true;
+        }
     }
+
     if (perpetual) {
         var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
         if (!startBlock) {
@@ -384,11 +406,16 @@ async function gotoYesterday(e) {
     goToDate(page, shiftButton);
 }
 
-async function gotoTomorrow(e) {
+async function gotoTomorrow(e, sidebar) {
     var shiftButton = false;
-    if (e && e.shiftKey) {
+    if (sidebar) {
         shiftButton = true;
+    } else {
+        if (e && e.shiftKey) {
+            shiftButton = true;
+        }
     }
+
     if (perpetual) {
         var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
         if (!startBlock) {
