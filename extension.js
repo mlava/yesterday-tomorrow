@@ -302,29 +302,7 @@ async function createDiv() {
     if (document.getElementById("todayTomorrow")) {
         document.getElementById("todayTomorrow").remove();
     }
-    var startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
-    if (!startBlock) {
-        var uri = window.location.href;
-        const regex = /^https:\/\/roamresearch\.com\/(.+)?#\/(app|offline)\/.+$/gm; //today's DNP
-        if (regex.test(uri)) { // this is Daily Notes for today
-            var today = new Date();
-            var dd = String(today.getDate()).padStart(2, '0');
-            var mm = String(today.getMonth() + 1).padStart(2, '0');
-            var yyyy = today.getFullYear();
-            thisDate = new Date(yyyy, mm, dd);
-        }
-    } else {
-        let q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...} ]) :where [?page :block/uid "${startBlock}"]  ]`;
-        var info = await window.roamAlphaAPI.q(q);
-        const regex = /\d{2}-\d{2}-\d{4}/;
-        if (regex.test(info[0][0].uid)) { // dated DNP
-            let dateBits = info[0][0].uid.split("-");
-            let mm = String(parseInt(dateBits[0]) - 1);
-            thisDate = new Date(dateBits[2], mm, dateBits[1]);
-        } else { // not a dated DNP
-            thisDate = new Date();
-        }
-    }
+    thisDate = await resolveCurrentDate(0);
 
     // Clone the original date for each calculation
     const originalDate = new Date(thisDate.getTime());
@@ -566,13 +544,6 @@ async function createDiv() {
 }
 
 // gotoDate functions
-function formatDate(date) {
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const yyyy = date.getFullYear();
-    return `${mm}-${dd}-${yyyy}`;
-}
-
 async function resolveCurrentDate(offsetDays = 0) {
     let date;
 
@@ -580,24 +551,33 @@ async function resolveCurrentDate(offsetDays = 0) {
         const startBlock = await window.roamAlphaAPI.ui.mainWindow.getOpenPageOrBlockUid();
 
         if (!startBlock) {
-            const uri = window.location.href;
-            const isTodayDNP = /^https:\/\/roamresearch.com\/.+\/(app|offline)\/\w+$/.test(uri) || uri.endsWith("/search");
-            if (isTodayDNP) {
-                date = new Date();
+            // getOpenPageOrBlockUid() returns null on the daily notes log view.
+            // Read today's DNP UID from the topmost log page in the DOM —
+            // avoids URL-shape regex and stays aligned with what Roam is showing.
+            // Other null-startBlock views (e.g. /search) fall through to today
+            // via the safety net below.
+            const logPageUid = document
+                .querySelector(".roam-log-page .rm-title-display-container[data-page-uid]")
+                ?.getAttribute("data-page-uid");
+            const m = logPageUid?.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (m) {
+                date = new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
             }
         } else {
-            const q = `[:find (pull ?page [:node/title :block/string :block/uid {:block/children ...}]) :where [?page :block/uid "${startBlock}"]]`;
-            const info = await window.roamAlphaAPI.q(q);
-            const pageInfo = info?.[0]?.[0];
-
-            if (pageInfo) {
-                const uid = pageInfo.uid;
-                if (/\d{2}-\d{2}-\d{4}/.test(uid)) {
-                    const [mm, dd, yyyy] = uid.split("-").map(Number);
-                    date = new Date(yyyy, mm - 1, dd);
-                } else {
-                    date = await window.roamAlphaAPI.util.pageTitleToDate(pageInfo.title.toString()) || new Date();
-                }
+            // startBlock is the UID. If it parses as a DNP UID, use it directly.
+            // Otherwise pull the title for the pageTitleToDate fallback (handles
+            // pages with non-canonical UIDs). Block UIDs have no :node/title and
+            // cleanly fall through to today.
+            const m = startBlock.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+            if (m) {
+                date = new Date(Number(m[3]), Number(m[1]) - 1, Number(m[2]));
+            } else {
+                const pulled = window.roamAlphaAPI.data.pull(
+                    "[:node/title]",
+                    [":block/uid", startBlock]
+                );
+                const title = pulled?.[":node/title"];
+                date = (title && await window.roamAlphaAPI.util.pageTitleToDate(title)) || new Date();
             }
         }
     }
@@ -609,8 +589,8 @@ async function resolveCurrentDate(offsetDays = 0) {
 }
 
 async function navigateToDate(date, shiftKey) {
-    const dateString = formatDate(date);
-    const titleDate = convertToRoamDate(dateString);
+    const dateString = window.roamAlphaAPI.util.dateToPageUid(date);
+    const titleDate = window.roamAlphaAPI.util.dateToPageTitle(date);
     let page = await window.roamAlphaAPI.q(`[:find (pull ?e [:block/uid]) :where [?e :node/title "${titleDate}"]]`)?.[0]?.[0]?.uid;
 
     if (!page) {
@@ -666,19 +646,6 @@ async function gotoLog() {
 // helper functions
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function convertToRoamDate(dateString) {
-    var parsedDate = dateString.split('-');
-    var year = parsedDate[2];
-    var month = Number(parsedDate[0]);
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-    var monthName = months[month - 1];
-    var day = Number(parsedDate[1]);
-    let suffix = (day >= 4 && day <= 20) || (day >= 24 && day <= 30)
-        ? "th"
-        : ["st", "nd", "rd"][day % 10 - 1];
-    return "" + monthName + " " + day + suffix + ", " + year + "";
 }
 
 function isStringInteger(value) {
