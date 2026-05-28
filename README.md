@@ -28,4 +28,4 @@ Hold shift to launch the page in the right sidebar.
 
 Using the configurable interval skip-to buttons (set backwards 3 and forwards 7 in this example):
 
-![alt text](demo.gif)
+![alt text](https://raw.githubusercontent.com/mlava/yesterday-tomorrow/main/demo.gif)
