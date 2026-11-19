@@ -7,6 +7,7 @@ var preferLog = false;
 var extraButtons = false;
 var fwdInterval, bwdInterval;
 let observer = undefined;
+let observerTimer = null;
 let renderRevision = 0;
 let active = false;
 
@@ -162,14 +163,6 @@ export default {
             callback: () => gotoTomorrow()
         });
         extensionAPI.ui.commandPalette.addCommand({
-            label: "Jump to next interval",
-            callback: () => gotoFwdInt()
-        });
-        extensionAPI.ui.commandPalette.addCommand({
-            label: "Jump to last interval",
-            callback: () => gotoBackInt()
-        });
-        extensionAPI.ui.commandPalette.addCommand({
             label: "Go to Previous Day (Sidebar)",
             callback: () => gotoYesterday(false, true)
         });
@@ -181,32 +174,47 @@ export default {
             label: "Go to Next Day (Sidebar)",
             callback: () => gotoTomorrow(false, true)
         });
-        extensionAPI.ui.commandPalette.addCommand({
-            label: "Jump to next interval (Sidebar)",
-            callback: () => gotoFwdInt(false, true)
-        });
-        extensionAPI.ui.commandPalette.addCommand({
-            label: "Jump to last interval (Sidebar)",
-            callback: () => gotoBackInt(false, true)
-        });
+        // Interval commands exist only while the skip-to buttons are enabled.
+        // extensionAPI cleans them up on unload; removeCommand is only needed for the runtime toggle.
+        const intervalCommands = [
+            { label: "Jump to next interval", callback: () => gotoFwdInt() },
+            { label: "Jump to last interval", callback: () => gotoBackInt() },
+            { label: "Jump to next interval (Sidebar)", callback: () => gotoFwdInt(false, true) },
+            { label: "Jump to last interval (Sidebar)", callback: () => gotoBackInt(false, true) },
+        ];
+        let intervalCommandsRegistered = false;
+        function syncIntervalCommands(enabled) {
+            if (enabled === intervalCommandsRegistered) return;
+            for (const command of intervalCommands) {
+                try {
+                    if (enabled) {
+                        extensionAPI.ui.commandPalette.addCommand(command);
+                    } else {
+                        extensionAPI.ui.commandPalette.removeCommand({ label: command.label });
+                    }
+                } catch (e) {
+                    console.warn("Yesterday & Tomorrow: failed to update command", command.label, e);
+                }
+            }
+            intervalCommandsRegistered = enabled;
+        }
 
-        async function initiateObserver() {
-            const targetNode1 = document.getElementsByClassName("rm-topbar")[0];
+        function initiateObserver() {
+            // Never stack observers if onload runs again without an onunload.
+            if (observer) {
+                observer.disconnect();
+                observer = undefined;
+            }
+            const targetNode1 = document.querySelector(".rm-topbar");
+            if (!targetNode1) return;
             const config = { attributes: false, childList: true, subtree: true };
-            const callback = function (mutationsList, observer) {
+            const isSidebarButton = (node) => node?.nodeType === 1 && node.classList.contains("rm-open-left-sidebar-btn");
+            const callback = function (mutationsList) {
                 for (const mutation of mutationsList) {
-                    if (mutation.addedNodes[0]) {
-                        for (var i = 0; i < mutation.addedNodes[0]?.classList.length; i++) {
-                            if (mutation.addedNodes[0]?.classList[i] == "rm-open-left-sidebar-btn") { // left sidebar has been closed
-                                createDiv();
-                            }
-                        }
-                    } else if (mutation.removedNodes[0]) {
-                        for (var i = 0; i < mutation.removedNodes[0]?.classList.length; i++) {
-                            if (mutation.removedNodes[0]?.classList[i] == "rm-open-left-sidebar-btn") { // left sidebar has been opened
-                                createDiv();
-                            }
-                        }
+                    // left sidebar closed (button added) or opened (button removed)
+                    if (isSidebarButton(mutation.addedNodes[0]) || isSidebarButton(mutation.removedNodes[0])) {
+                        scheduleCreateDiv();
+                        return;
                     }
                 }
             };
@@ -223,6 +231,7 @@ export default {
             extensionAPI.settings.panel.create(config);
             extraButtons = false;
         }
+        syncIntervalCommands(extraButtons);
 
         if (extensionAPI.settings.get("ytt-dates") == true) {
             preferDates = true;
@@ -267,6 +276,7 @@ export default {
                 extensionAPI.settings.panel.create(config);
                 extraButtons = false;
             }
+            syncIntervalCommands(extraButtons);
             createDiv();
         };
         async function setFwdInterval(evt) {
@@ -277,6 +287,10 @@ export default {
                 } else {
                     alert("Please make sure you only enter integers in the settings for Jump to next interval")
                 }
+            } else {
+                // Field cleared: drop the stale in-memory interval so its button is hidden.
+                fwdInterval = undefined;
+                createDiv();
             }
         };
         async function setBwdInterval(evt) {
@@ -285,16 +299,22 @@ export default {
                     bwdInterval = evt.target.value;
                     createDiv();
                 } else {
-                    alert("Please make sure you only enter integers in the settings for Jump to next interval")
+                    alert("Please make sure you only enter integers in the settings for Jump to last interval")
                 }
+            } else {
+                bwdInterval = undefined;
+                createDiv();
             }
         };
     },
     onunload: () => {
         active = false;
         renderRevision++;
+        clearTimeout(observerTimer);
+        observerTimer = null;
         document.querySelectorAll('[id="todayTomorrow"]').forEach(element => element.remove());
         observer?.disconnect();
+        observer = undefined;
     }
 }
 
@@ -309,8 +329,13 @@ async function createDiv() {
     // Clone the original date for each calculation
     const originalDate = new Date(thisDate.getTime());
 
+    // A skip-to button is only shown when its interval is a valid integer;
+    // otherwise its date maths would produce NaN labels and invalid navigation.
+    const showBwd = extraButtons && parseInterval(bwdInterval) !== null;
+    const showFwd = extraButtons && parseInterval(fwdInterval) !== null;
+
     if (preferDates == true && perpetual == true) {
-        if (extraButtons) {
+        if (showBwd) {
             const backDate = new Date(originalDate.getTime());
             const bwd = Number(bwdInterval);
             backDate.setDate(backDate.getDate() - bwd);
@@ -333,7 +358,7 @@ async function createDiv() {
         tDay = tomorrow.getDate().toString();
         tYear = tomorrow.getFullYear().toString();
 
-        if (extraButtons) {
+        if (showFwd) {
             const fwdDate = new Date(originalDate.getTime());
             const fwd = Number(fwdInterval);
             fwdDate.setDate(fwdDate.getDate() + fwd);
@@ -345,17 +370,13 @@ async function createDiv() {
         if (datestyle == true) {
             yDate = yMonth.padStart(2, "0") + "/" + yDay.padStart(2, "0") + "/" + yYear;
             tDate = tMonth.padStart(2, "0") + "/" + tDay.padStart(2, "0") + "/" + tYear;
-            if (extraButtons && perpetual) {
-                bDate = bMonth.padStart(2, "0") + "/" + bDay.padStart(2, "0") + "/" + bYear;
-                fDate = fMonth.padStart(2, "0") + "/" + fDay.padStart(2, "0") + "/" + fYear;
-            }
+            if (showBwd) bDate = bMonth.padStart(2, "0") + "/" + bDay.padStart(2, "0") + "/" + bYear;
+            if (showFwd) fDate = fMonth.padStart(2, "0") + "/" + fDay.padStart(2, "0") + "/" + fYear;
         } else {
             yDate = yDay.padStart(2, "0") + "/" + yMonth.padStart(2, "0") + "/" + yYear;
             tDate = tDay.padStart(2, "0") + "/" + tMonth.padStart(2, "0") + "/" + tYear;
-            if (extraButtons && perpetual) {
-                bDate = bDay.padStart(2, "0") + "/" + bMonth.padStart(2, "0") + "/" + bYear;
-                fDate = fDay.padStart(2, "0") + "/" + fMonth.padStart(2, "0") + "/" + fYear;
-            }
+            if (showBwd) bDate = bDay.padStart(2, "0") + "/" + bMonth.padStart(2, "0") + "/" + bYear;
+            if (showFwd) fDate = fDay.padStart(2, "0") + "/" + fMonth.padStart(2, "0") + "/" + fYear;
         }
     } else if (preferDates == true && perpetual == false) {
         const yesterday = new Date();
@@ -369,14 +390,15 @@ async function createDiv() {
         tDay = tomorrow.getDate().toString();
         tYear = tomorrow.getFullYear().toString();
 
-        if (extraButtons) {
+        if (showBwd) {
             const backDate = new Date(originalDate.getTime());
             const bwd = Number(bwdInterval);
             backDate.setDate(backDate.getDate() - bwd);
             bMonth = (backDate.getMonth() + 1).toString();
             bDay = backDate.getDate().toString();
             bYear = backDate.getFullYear().toString();
-
+        }
+        if (showFwd) {
             const fwdDate = new Date(originalDate.getTime());
             const fwd = Number(fwdInterval);
             fwdDate.setDate(fwdDate.getDate() + fwd);
@@ -387,17 +409,13 @@ async function createDiv() {
         if (datestyle == true) {
             yDate = yMonth.padStart(2, "0") + "/" + yDay.padStart(2, "0") + "/" + yYear;
             tDate = tMonth.padStart(2, "0") + "/" + tDay.padStart(2, "0") + "/" + tYear;
-            if (extraButtons) {
-                bDate = bMonth.padStart(2, "0") + "/" + bDay.padStart(2, "0") + "/" + bYear;
-                fDate = fMonth.padStart(2, "0") + "/" + fDay.padStart(2, "0") + "/" + fYear;
-            }
+            if (showBwd) bDate = bMonth.padStart(2, "0") + "/" + bDay.padStart(2, "0") + "/" + bYear;
+            if (showFwd) fDate = fMonth.padStart(2, "0") + "/" + fDay.padStart(2, "0") + "/" + fYear;
         } else {
             yDate = yDay.padStart(2, "0") + "/" + yMonth.padStart(2, "0") + "/" + yYear;
             tDate = tDay.padStart(2, "0") + "/" + tMonth.padStart(2, "0") + "/" + tYear;
-            if (extraButtons) {
-                bDate = bDay.padStart(2, "0") + "/" + bMonth.padStart(2, "0") + "/" + bYear;
-                fDate = fDay.padStart(2, "0") + "/" + fMonth.padStart(2, "0") + "/" + fYear;
-            }
+            if (showBwd) bDate = bDay.padStart(2, "0") + "/" + bMonth.padStart(2, "0") + "/" + bYear;
+            if (showFwd) fDate = fDay.padStart(2, "0") + "/" + fMonth.padStart(2, "0") + "/" + fYear;
         }
     }
 
@@ -406,7 +424,7 @@ async function createDiv() {
     divParent.innerHTML = "";
     divParent.id = 'todayTomorrow';
 
-    if (extraButtons) {
+    if (showBwd) {
         var div = document.createElement('div'); // bwd interval
         div.classList.add('flex-items');
         div.innerHTML = "";
@@ -496,7 +514,7 @@ async function createDiv() {
     }
     divParent.append(div1);
 
-    if (extraButtons) {
+    if (showFwd) {
         var div1 = document.createElement('div'); // fwdInterval
         div1.classList.add('flex-items');
         div1.innerHTML = "";
@@ -543,8 +561,13 @@ async function createDiv() {
             electronArrows.after(divParent);
         } else {
             var topBarContent = document.querySelector("#app > div > div > div.flex-h-box > div.roam-main > div.rm-files-dropzone > div");
-            var topBarRow = topBarContent.childNodes[1];
-            topBarRow.parentNode.insertBefore(divParent, topBarRow);
+            var topBarRow = topBarContent?.childNodes[1];
+            if (topBarRow?.parentNode) {
+                topBarRow.parentNode.insertBefore(divParent, topBarRow);
+            } else {
+                // Roam's layout has changed; fall back to the start of the top bar rather than throwing.
+                document.querySelector(".rm-topbar")?.prepend(divParent);
+            }
         }
     }
 }
@@ -637,11 +660,15 @@ async function gotoTomorrow(e, sidebar) {
 }
 
 async function gotoBackInt(e, sidebar) {
-    await gotoRelativeDate(e, sidebar, -Number(bwdInterval));
+    const days = parseInterval(bwdInterval);
+    if (!extraButtons || days === null) return;
+    await gotoRelativeDate(e, sidebar, -days);
 }
 
 async function gotoFwdInt(e, sidebar) {
-    await gotoRelativeDate(e, sidebar, Number(fwdInterval));
+    const days = parseInterval(fwdInterval);
+    if (!extraButtons || days === null) return;
+    await gotoRelativeDate(e, sidebar, days);
 }
 
 async function gotoLog() {
@@ -657,6 +684,22 @@ async function sleep(ms) {
 function isStringInteger(value) {
     const number = Number(value);
     return !isNaN(number) && Number.isInteger(number);
+}
+
+// Returns the interval as an integer, or null when it is unset or not an integer.
+function parseInterval(value) {
+    if (value === undefined || value === null || String(value).trim() === "") return null;
+    const number = Number(value);
+    return Number.isInteger(number) ? number : null;
+}
+
+// Debounced refresh for observer-driven re-renders (sidebar toggles).
+function scheduleCreateDiv() {
+    clearTimeout(observerTimer);
+    observerTimer = setTimeout(() => {
+        observerTimer = null;
+        createDiv();
+    }, 150);
 }
 
 async function goToDate(date, shiftButton) {

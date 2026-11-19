@@ -9,8 +9,9 @@ const { JSDOM } = require('jsdom');
 
 const source = readFileSync(process.env.EXTENSION_SOURCE || resolve(__dirname, '../extension.js'), 'utf8');
 
-function fixture({ desktop = true, collapsed = true, workspaces = false, getUid, realTimers = false } = {}) {
-    const dom = new JSDOM(`<div id="app"><div><div><div class="flex-h-box">
+function fixture({ desktop = true, collapsed = true, workspaces = false, getUid, realTimers = false,
+    settings: overrides = {}, layout = true } = {}) {
+    const dom = new JSDOM(!layout ? '<div class="rm-topbar"></div>' : `<div id="app"><div><div><div class="flex-h-box">
       <div class="roam-main"><div class="rm-files-dropzone"><div><div></div><div class="rm-topbar">
       ${collapsed ? '<span class="rm-open-left-sidebar-btn"></span>' : ''}
       ${desktop ? '<span class="bp3-button bp3-minimal bp3-icon-arrow-right pointer bp3-small rm-electron-nav-forward-btn"></span>' : ''}
@@ -24,14 +25,29 @@ function fixture({ desktop = true, collapsed = true, workspaces = false, getUid,
     };
     let panel;
     const settings = { 'ytt-extraButtons': true, 'ytt-fwdInterval': '7', 'ytt-bwdInterval': '7',
-        'ytt-perpetual': true, 'ytt-dates': true };
-    window.eval(source.replace('export default {', 'window.testExtension = {'));
-    window.testExtension.onload({ extensionAPI: {
+        'ytt-perpetual': true, 'ytt-dates': true, ...overrides };
+    const commands = new Set();
+    let observing = 0;
+    const NativeObserver = window.MutationObserver;
+    window.MutationObserver = class extends NativeObserver {
+        observe(...args) { observing++; return super.observe(...args); }
+        disconnect() { observing--; return super.disconnect(); }
+    };
+    const extensionAPI = {
         settings: { get: key => settings[key], panel: { create: value => { panel = value; } } },
-        ui: { commandPalette: { addCommand() {} } },
-    } });
+        ui: { commandPalette: {
+            addCommand({ label }) { commands.add(label); },
+            removeCommand({ label }) { commands.delete(label); },
+        } },
+    };
+    window.eval(source.replace('export default {', 'window.testExtension = {'));
+    window.testExtension.onload({ extensionAPI });
     return {
         window,
+        commands,
+        observing: () => observing,
+        reload: () => window.testExtension.onload({ extensionAPI }),
+        setting: (id, value) => panel.settings.find(s => s.id === id).action.onChange(value),
         count: () => window.document.querySelectorAll('[id="todayTomorrow"]').length,
         change: checked => panel.settings.find(s => s.id === 'ytt-labels').action.onChange({ target: { checked } }),
         unload: () => window.testExtension.onunload(),
@@ -143,5 +159,59 @@ test('out-of-order date reads cannot replace the latest toolbar', async () => {
         await f.settle();
         assert.equal(f.count(), 1);
         assert.equal(f.window.document.querySelector('#yestDiv .yt-hide').textContent, '13/11/2026');
+    } finally { f.close(); }
+});
+
+test('blank or invalid intervals hide their skip-to button instead of showing NaN', async () => {
+    const f = fixture({ settings: { 'ytt-fwdInterval': '', 'ytt-bwdInterval': undefined } });
+    try {
+        await f.settle();
+        const bar = f.window.document.querySelector('#todayTomorrow');
+        assert.equal(bar.children.length, 3);
+        assert.doesNotMatch(bar.textContent, /NaN/);
+        f.setting('ytt-fwdInterval', { target: { value: '3' } });
+        await f.settle();
+        assert.ok(f.window.document.querySelector('#fwdDiv'));
+        assert.equal(f.window.document.querySelector('#bwdDiv'), null);
+        f.setting('ytt-fwdInterval', { target: { value: '' } });
+        await f.settle();
+        assert.equal(f.window.document.querySelector('#fwdDiv'), null);
+    } finally { f.close(); }
+});
+
+test('interval commands are registered only while skip-to buttons are enabled', async () => {
+    const f = fixture({ settings: { 'ytt-extraButtons': false } });
+    try {
+        await f.settle();
+        assert.ok(f.commands.has('Go to Next Day'));
+        assert.ok(![...f.commands].some(label => label.startsWith('Jump to')));
+        f.setting('ytt-extraButtons', { target: { checked: true } });
+        await f.settle();
+        assert.equal([...f.commands].filter(label => label.startsWith('Jump to')).length, 4);
+        f.setting('ytt-extraButtons', { target: { checked: false } });
+        await f.settle();
+        assert.ok(![...f.commands].some(label => label.startsWith('Jump to')));
+    } finally { f.close(); }
+});
+
+test('a repeated onload does not stack observers, and unload disconnects', async () => {
+    const f = fixture();
+    try {
+        await f.settle();
+        assert.equal(f.observing(), 1);
+        f.reload();
+        await f.settle();
+        assert.equal(f.observing(), 1);
+        assert.equal(f.count(), 1);
+        f.unload();
+        assert.equal(f.observing(), 0);
+    } finally { f.close(); }
+});
+
+test('an unrecognised top-bar layout falls back instead of throwing', async () => {
+    const f = fixture({ desktop: false, collapsed: false, layout: false });
+    try {
+        await f.settle();
+        assert.equal(f.count(), 1);
     } finally { f.close(); }
 });
