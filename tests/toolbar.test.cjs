@@ -274,7 +274,7 @@ test('perpetual labels refresh when Roam navigates by its own links', async () =
     } finally { f.close(); }
 });
 
-for (const value of ['1e3', '0x10', '7.5', '-', '7days']) {
+for (const value of ['1e3', '0x10', '7.5', '-', '7days', '0']) {
     test(`interval "${value}" is rejected without alert() and hides its button`, async () => {
         const f = fixture({ settings: { 'ytt-fwdInterval': value } });
         try {
@@ -292,6 +292,19 @@ test('whole-number intervals are accepted and normalised for labels', async () =
     try {
         await f.settle();
         assert.equal(f.window.document.querySelector('#fwdDiv .yt-hide').textContent, '+7');
-        assert.equal(f.window.document.querySelector('#bwdDiv .yt-hide').textContent, '--3');
+        assert.equal(f.window.document.querySelector('#bwdDiv .yt-hide').textContent, '-3');
+    } finally { f.close(); }
+});
+
+test('a signed interval still jumps in its setting\'s direction', async () => {
+    // Today in the fixture is 12/11/2026 (perpetual, DD/MM dates).
+    const f = fixture({ settings: { 'ytt-bwdInterval': '-3', 'ytt-fwdInterval': '-4' } });
+    try {
+        await f.settle();
+        assert.equal(f.window.document.querySelector('#bwdDiv .yt-hide').textContent, '09/11/2026');
+        assert.equal(f.window.document.querySelector('#fwdDiv .yt-hide').textContent, '16/11/2026');
+        f.window.document.querySelector('#bwdDiv').click();
+        await f.settle();
+        assert.deepEqual(f.writes.opened, ['11-09-2026']);
     } finally { f.close(); }
 });

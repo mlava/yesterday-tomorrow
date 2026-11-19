@@ -681,14 +681,16 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Returns the interval as an integer, or null unless it is a plain whole number
-// ("7", "-3"). Rejects forms Number() would accept, such as "1e3", "0x10" or "7.0".
+// Returns the interval as a positive day count, or null unless it is a plain whole
+// number. Rejects forms Number() would accept, such as "1e3", "0x10" or "7.0".
+// The direction comes from the setting itself (backward/forward), so a sign is
+// ignored: "-3" in "Interval to jump backward" means 3 days back, not 3 forward.
 function parseInterval(value) {
     if (value === undefined || value === null) return null;
     const text = String(value).trim();
-    if (!/^-?\d+$/.test(text)) return null;
-    const number = Number(text);
-    return Number.isSafeInteger(number) ? number : null;
+    if (!/^[-+]?\d+$/.test(text)) return null;
+    const number = Math.abs(Number(text));
+    return Number.isSafeInteger(number) && number > 0 ? number : null;
 }
 
 // Canonical string form for labels ("07" -> "7"), or undefined when invalid/unset.
