@@ -20,9 +20,33 @@ function fixture({ desktop = true, collapsed = true, workspaces = false, getUid,
     const { window } = dom;
     const timers = [];
     if (!realTimers) window.setTimeout = callback => timers.push(callback);
+    const pages = new Map(); // title -> uid
+    const writes = { pages: 0, blocks: 0, opened: [] };
+    const pad = n => String(n).padStart(2, '0');
     window.roamAlphaAPI = {
-        ui: { mainWindow: { getOpenPageOrBlockUid: getUid || (() => '11-12-2026') } },
+        ui: { mainWindow: {
+            getOpenPageOrBlockUid: getUid || (() => '11-12-2026'),
+            async openBlock({ block }) { writes.opened.push(block.uid); },
+        } },
+        util: {
+            dateToPageUid: d => `${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${d.getFullYear()}`,
+            dateToPageTitle: d => `title-${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`,
+            generateUID: () => Math.random().toString(36).slice(2, 11),
+        },
+        q: query => {
+            const uid = pages.get(/:node\/title "([^"]+)"/.exec(query)?.[1]);
+            return uid ? [[{ uid }]] : [];
+        },
+        async createPage({ page }) {
+            await Promise.resolve();
+            if (pages.has(page.title)) throw new Error('page exists');
+            writes.pages++;
+            pages.set(page.title, page.uid);
+        },
+        data: { pull: () => null },
+        async createBlock() { writes.blocks++; },
     };
+    window.alert = () => { throw new Error('alert() must not be used'); };
     let panel;
     const settings = { 'ytt-extraButtons': true, 'ytt-fwdInterval': '7', 'ytt-bwdInterval': '7',
         'ytt-perpetual': true, 'ytt-dates': true, ...overrides };
@@ -44,6 +68,7 @@ function fixture({ desktop = true, collapsed = true, workspaces = false, getUid,
     window.testExtension.onload({ extensionAPI });
     return {
         window,
+        writes,
         commands,
         observing: () => observing,
         reload: () => window.testExtension.onload({ extensionAPI }),
@@ -213,5 +238,60 @@ test('an unrecognised top-bar layout falls back instead of throwing', async () =
     try {
         await f.settle();
         assert.equal(f.count(), 1);
+    } finally { f.close(); }
+});
+
+test('rapid repeat clicks on the same new date create the page and block once', async () => {
+    const f = fixture();
+    try {
+        await f.settle();
+        const tomorrow = f.window.document.querySelector('#tomDiv');
+        tomorrow.click();
+        tomorrow.click();
+        tomorrow.click();
+        await f.settle();
+        assert.equal(f.writes.pages, 1);
+        assert.equal(f.writes.blocks, 1);
+        assert.deepEqual(f.writes.opened, ['11-13-2026', '11-13-2026', '11-13-2026']);
+    } finally { f.close(); }
+});
+
+test('perpetual labels refresh when Roam navigates by its own links', async () => {
+    let uid = '11-12-2026';
+    const f = fixture({ getUid: () => uid });
+    try {
+        await f.settle();
+        assert.equal(f.window.document.querySelector('#yestDiv .yt-hide').textContent, '11/11/2026');
+        uid = '12-25-2026';
+        f.window.dispatchEvent(new f.window.HashChangeEvent('hashchange'));
+        await f.settle();
+        assert.equal(f.window.document.querySelector('#yestDiv .yt-hide').textContent, '24/12/2026');
+        f.unload();
+        uid = '01-05-2027';
+        f.window.dispatchEvent(new f.window.HashChangeEvent('hashchange'));
+        await f.settle();
+        assert.equal(f.count(), 0);
+    } finally { f.close(); }
+});
+
+for (const value of ['1e3', '0x10', '7.5', '-', '7days']) {
+    test(`interval "${value}" is rejected without alert() and hides its button`, async () => {
+        const f = fixture({ settings: { 'ytt-fwdInterval': value } });
+        try {
+            await f.settle();
+            assert.equal(f.window.document.querySelector('#fwdDiv'), null);
+            f.setting('ytt-bwdInterval', { target: { value } });
+            await f.settle();
+            assert.equal(f.window.document.querySelector('#bwdDiv'), null);
+        } finally { f.close(); }
+    });
+}
+
+test('whole-number intervals are accepted and normalised for labels', async () => {
+    const f = fixture({ settings: { 'ytt-dates': false, 'ytt-fwdInterval': ' 07 ', 'ytt-bwdInterval': '-3' } });
+    try {
+        await f.settle();
+        assert.equal(f.window.document.querySelector('#fwdDiv .yt-hide').textContent, '+7');
+        assert.equal(f.window.document.querySelector('#bwdDiv .yt-hide').textContent, '--3');
     } finally { f.close(); }
 });

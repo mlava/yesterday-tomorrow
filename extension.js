@@ -10,6 +10,7 @@ let observer = undefined;
 let observerTimer = null;
 let renderRevision = 0;
 let active = false;
+const pendingDailyPages = new Map(); // page uid -> in-flight ensureDailyPage promise
 
 export default {
     onload: ({ extensionAPI }) => {
@@ -133,7 +134,7 @@ export default {
                 {
                     id: "ytt-fwdInterval",
                     name: "Interval to jump forward",
-                    description: "Number of days to jump forward",
+                    description: "Whole number of days to jump forward, e.g. 7. The button stays hidden until a valid number is entered.",
                     action: {
                         type: "input", placeholder: "Days as integer",
                         onChange: (evt) => { setFwdInterval(evt); } // update div onchange
@@ -142,7 +143,7 @@ export default {
                 {
                     id: "ytt-bwdInterval",
                     name: "Interval to jump backward",
-                    description: "Number of days to jump backward",
+                    description: "Whole number of days to jump backward, e.g. 7. The button stays hidden until a valid number is entered.",
                     action: {
                         type: "input", placeholder: "Days as integer",
                         onChange: (evt) => { setBwdInterval(evt); } // update div onchange
@@ -250,20 +251,15 @@ export default {
         if (extensionAPI.settings.get("ytt-preferLog") == true) {
             preferLog = true;
         }
-        if (extensionAPI.settings.get("ytt-fwdInterval") != null && extensionAPI.settings.get("ytt-fwdInterval") != "") {
-            if (isStringInteger(extensionAPI.settings.get("ytt-fwdInterval"))) {
-                fwdInterval = extensionAPI.settings.get("ytt-fwdInterval");
-            } else {
-                alert("Please make sure you only enter integers in the settings for Jump to next interval")
-            }
-        }
-        if (extensionAPI.settings.get("ytt-bwdInterval") != null && extensionAPI.settings.get("ytt-bwdInterval") != "") {
-            if (isStringInteger(extensionAPI.settings.get("ytt-bwdInterval"))) {
-                bwdInterval = extensionAPI.settings.get("ytt-bwdInterval");
-            } else {
-                alert("Please make sure you only enter integers in the settings for Jump to last interval")
-            }
-        }
+        fwdInterval = normaliseInterval(extensionAPI.settings.get("ytt-fwdInterval"), "Jump forward");
+        bwdInterval = normaliseInterval(extensionAPI.settings.get("ytt-bwdInterval"), "Jump back");
+
+        // Perpetual-mode labels depend on the open page, so refresh them when Roam navigates
+        // by any route (links, back/forward), not just via this extension's buttons.
+        window.removeEventListener("hashchange", onRouteChange);
+        window.removeEventListener("popstate", onRouteChange);
+        window.addEventListener("hashchange", onRouteChange);
+        window.addEventListener("popstate", onRouteChange);
 
         createDiv(); //onload
 
@@ -279,32 +275,15 @@ export default {
             syncIntervalCommands(extraButtons);
             createDiv();
         };
+        // Invalid or partial input (e.g. "-" while typing "-5") hides the button until the
+        // value is a whole number, matching what a reload of the stored value would show.
         async function setFwdInterval(evt) {
-            if (evt.target.value != null && evt.target.value != "") {
-                if (isStringInteger(evt.target.value)) {
-                    fwdInterval = evt.target.value;
-                    createDiv();
-                } else {
-                    alert("Please make sure you only enter integers in the settings for Jump to next interval")
-                }
-            } else {
-                // Field cleared: drop the stale in-memory interval so its button is hidden.
-                fwdInterval = undefined;
-                createDiv();
-            }
+            fwdInterval = normaliseInterval(evt?.target?.value ?? evt, "Jump forward");
+            createDiv();
         };
         async function setBwdInterval(evt) {
-            if (evt.target.value != null && evt.target.value != "") {
-                if (isStringInteger(evt.target.value)) {
-                    bwdInterval = evt.target.value;
-                    createDiv();
-                } else {
-                    alert("Please make sure you only enter integers in the settings for Jump to last interval")
-                }
-            } else {
-                bwdInterval = undefined;
-                createDiv();
-            }
+            bwdInterval = normaliseInterval(evt?.target?.value ?? evt, "Jump back");
+            createDiv();
         };
     },
     onunload: () => {
@@ -312,6 +291,8 @@ export default {
         renderRevision++;
         clearTimeout(observerTimer);
         observerTimer = null;
+        window.removeEventListener("hashchange", onRouteChange);
+        window.removeEventListener("popstate", onRouteChange);
         document.querySelectorAll('[id="todayTomorrow"]').forEach(element => element.remove());
         observer?.disconnect();
         observer = undefined;
@@ -619,12 +600,32 @@ async function resolveCurrentDate(offsetDays = 0) {
 
 async function navigateToDate(date, shiftKey) {
     const dateString = window.roamAlphaAPI.util.dateToPageUid(date);
+    // Rapid repeat clicks on the same date share one create, so the page and its
+    // first empty block are never created twice.
+    let pending = pendingDailyPages.get(dateString);
+    if (!pending) {
+        pending = ensureDailyPage(date, dateString).finally(() => pendingDailyPages.delete(dateString));
+        pendingDailyPages.set(dateString, pending);
+    }
+    const page = await pending;
+    goToDate(page, shiftKey);
+}
+
+async function ensureDailyPage(date, dateString) {
     const titleDate = window.roamAlphaAPI.util.dateToPageTitle(date);
-    let page = await window.roamAlphaAPI.q(`[:find (pull ?e [:block/uid]) :where [?e :node/title "${titleDate}"]]`)?.[0]?.[0]?.uid;
+    const findPage = async () =>
+        (await window.roamAlphaAPI.q(`[:find (pull ?e [:block/uid]) :where [?e :node/title "${titleDate}"]]`))?.[0]?.[0]?.uid;
+    let page = await findPage();
 
     if (!page) {
-        await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: dateString } });
-        page = dateString;
+        try {
+            await window.roamAlphaAPI.createPage({ page: { title: titleDate, uid: dateString } });
+            page = dateString;
+        } catch (e) {
+            // Created elsewhere in the meantime (another tab or device): use the existing page.
+            page = await findPage();
+            if (!page) throw e;
+        }
     }
 
     const results = await window.roamAlphaAPI.data.pull("[:block/children]", [":block/uid", page]);
@@ -635,8 +636,7 @@ async function navigateToDate(date, shiftKey) {
             block: { string: "", uid: newBlockUid }
         });
     }
-
-    goToDate(page, shiftKey);
+    return page;
 }
 
 async function gotoRelativeDate(e, sidebar, offsetDays) {
@@ -681,16 +681,30 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function isStringInteger(value) {
-    const number = Number(value);
-    return !isNaN(number) && Number.isInteger(number);
+// Returns the interval as an integer, or null unless it is a plain whole number
+// ("7", "-3"). Rejects forms Number() would accept, such as "1e3", "0x10" or "7.0".
+function parseInterval(value) {
+    if (value === undefined || value === null) return null;
+    const text = String(value).trim();
+    if (!/^-?\d+$/.test(text)) return null;
+    const number = Number(text);
+    return Number.isSafeInteger(number) ? number : null;
 }
 
-// Returns the interval as an integer, or null when it is unset or not an integer.
-function parseInterval(value) {
-    if (value === undefined || value === null || String(value).trim() === "") return null;
-    const number = Number(value);
-    return Number.isInteger(number) ? number : null;
+// Canonical string form for labels ("07" -> "7"), or undefined when invalid/unset.
+function normaliseInterval(value, label) {
+    const number = parseInterval(value);
+    if (number === null) {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+            console.warn(`Yesterday & Tomorrow: ignoring "${label}" interval "${value}" - enter a whole number of days.`);
+        }
+        return undefined;
+    }
+    return String(number);
+}
+
+function onRouteChange() {
+    if (perpetual) scheduleCreateDiv();
 }
 
 // Debounced refresh for observer-driven re-renders (sidebar toggles).
