@@ -6,11 +6,13 @@ var perpetual = false;
 var preferLog = false;
 var extraButtons = false;
 var fwdInterval, bwdInterval;
-var thisDate;
 let observer = undefined;
+let renderRevision = 0;
+let active = false;
 
 export default {
     onload: ({ extensionAPI }) => {
+        active = true;
         const config = {
             tabTitle: "Yesterday & Tomorrow",
             settings: [
@@ -289,20 +291,20 @@ export default {
         };
     },
     onunload: () => {
-        if (document.getElementById("todayTomorrow")) {
-            document.getElementById("todayTomorrow").remove();
-        }
-        observer.disconnect();
+        active = false;
+        renderRevision++;
+        document.querySelectorAll('[id="todayTomorrow"]').forEach(element => element.remove());
+        observer?.disconnect();
     }
 }
 
 async function createDiv() {
+    if (!active) return;
+    const revision = ++renderRevision;
     var bMonth, bDay, bYear, fMonth, fDay, fYear, tMonth, tDay, tYear, yMonth, yDay, yYear;
 
-    if (document.getElementById("todayTomorrow")) {
-        document.getElementById("todayTomorrow").remove();
-    }
-    thisDate = await resolveCurrentDate(0);
+    const thisDate = await resolveCurrentDate(0);
+    if (!active || revision !== renderRevision) return;
 
     // Clone the original date for each calculation
     const originalDate = new Date(thisDate.getTime());
@@ -518,8 +520,13 @@ async function createDiv() {
         divParent.append(div1);
     }
 
+    await sleep(20);
+    // Only the newest render may replace the toolbar; removal and insertion
+    // must stay synchronous so overlapping refreshes cannot leave duplicates.
+    if (!active || revision !== renderRevision) return;
+    document.querySelectorAll('[id="todayTomorrow"]').forEach(element => element.remove());
+
     if (document.querySelector(".rm-open-left-sidebar-btn")) {
-        await sleep(20);
         if (document.querySelector("#workspaces")) { // Workspaces extension also installed, so place this to right
             let workspaces = document.querySelector("#workspaces");
             workspaces.parentNode.insertBefore(divParent, workspaces);
@@ -531,7 +538,6 @@ async function createDiv() {
             sidebarButton.after(divParent);
         }
     } else {
-        await sleep(20);
         if (document.querySelector("span.bp3-button.bp3-minimal.bp3-icon-arrow-right.pointer.bp3-small.rm-electron-nav-forward-btn")) {
             let electronArrows = document.getElementsByClassName("rm-electron-nav-forward-btn")[0];
             electronArrows.after(divParent);
